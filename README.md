@@ -27,7 +27,7 @@ With this background, this API supports the following register names:
 
 ## API
 
-`reg [[--instance | -I] <instance>] <command> [<command options and args]`
+`reg [--background | -b] [[--instance | -I] <instance>] <command> [<command options and args]`
 
 ### Direct register manipulation
 
