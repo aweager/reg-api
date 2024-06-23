@@ -1,5 +1,9 @@
 # Unified register API
 
+```
+WARNING: If you're using this, don't
+```
+
 Generic register sharing API across a tree of register-holding services.
 
 ## Concepts and Terminology
@@ -23,14 +27,30 @@ With this background, this API supports the following register names:
 
 ## API
 
-`reg [--instance <instance>] <command> [<command options and args]`
+`reg [[--instance | -I] <instance>] <command> [<command options and args]`
 
 ### Direct register manipulation
 
 #### get
+
+#### has
 
 #### list
 
 #### set
 
 #### delete
+
+### Tree manipulation
+
+#### link
+
+#### unlink
+
+#### list-links
+
+### Syncing
+
+#### sync
+
+#### publish
