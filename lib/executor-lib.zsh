@@ -98,6 +98,11 @@ function reg-list() {
         echo unnamed
         reg_list=("${(@)reg_list[1,$unnamed_index - 1]}" "${(@)reg_list[$unnamed_index + 1,-1]}")
     fi
+
+    if [[ -z $reg_list ]]; then
+        return
+    fi
+
     printf '%s\n' "$reg_list[@]" | sort
 }
 
