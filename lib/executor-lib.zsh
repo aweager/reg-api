@@ -88,6 +88,10 @@ function reg-delete() {
 
 function reg-list() {
     local REG_LIST="$(.list)"
+    if [[ -z "$REG_LIST" ]]; then
+        return
+    fi
+
     local -a reg_list=("${(f)REG_LIST}")
     unnamed_index="$reg_list[(Ie)unnamed]"
     if [[ $unnamed_index != 0 ]]; then
