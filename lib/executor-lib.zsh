@@ -47,6 +47,9 @@ function reg-impl() {
         sync)
             reg-sync "$@"
             ;;
+        publish)
+            reg-publish "$@"
+            ;;
         *)
             printf 'Unknown reg command %s\n' "$cmd"
             reg-print-usage
@@ -61,7 +64,7 @@ function reg-print-usage() {
 }
 
 function reg-get() {
-    if ! .get; then
+    if ! .get "$1"; then
         printf 'Register "%s" not found\n' "$1" >&2
         return 1
     fi
@@ -69,7 +72,7 @@ function reg-get() {
 
 function reg-set() {
     .set-no-sync "$1"
-    reg-publish "" "$1"
+    .publish-except "" "$1"
 }
 
 function reg-has() {
@@ -79,7 +82,7 @@ function reg-has() {
 
 function reg-delete() {
     if .delete-no-sync "$1"; then
-        reg-publish "" "$1"
+        .publish-except "" "$1"
     fi
 }
 
@@ -89,7 +92,7 @@ function reg-list() {
     unnamed_index="$reg_list[(Ie)unnamed]"
     if [[ $unnamed_index != 0 ]]; then
         echo unnamed
-        unset reg_list[unnamed]
+        reg_list=("${(@)reg_list[1,$unnamed_index - 1]}" "${(@)reg_list[$unnamed_index + 1,-1]}")
     fi
     printf '%s\n' "$reg_list[@]" | sort
 }
@@ -102,12 +105,14 @@ function reg-link() {
 
 function reg-list-links() {
     .populate-links
-    printf '%s\n' "${(@k)RegLinks}"
+    if [[ -n $RegLinks ]]; then
+        printf '%s\n' "${(@k)RegLinks}"
+    fi
 }
 
 function reg-unlink() {
     .populate-links
-    unset RegLinks[$1]
+    unset "RegLinks[$1]"
     .set-link-list
 }
 
@@ -149,10 +154,14 @@ function reg-sync() {
         wait "$pids[@]"
     fi
 
-    reg-publish "$from_socket" "$specific_reg"
+    .publish-except "$from_socket" "$specific_reg"
 }
 
 function reg-publish() {
+    .publish-except "" "$1"
+}
+
+function .publish-except() {
     local exclude_link="$1"
     local specific_reg="$2"
     .populate-links

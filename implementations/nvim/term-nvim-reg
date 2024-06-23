@@ -1,0 +1,15 @@
+#!/bin/zsh
+
+# TODO this cleanup / term logic might be better in the common
+local -a links=("${(ps|:|)1}")
+local -a pids
+local link
+for link in "$links[@]"; do
+    if [[ -n "$link" ]]; then
+        reg -I "$link" unlink "$REG_SOCKET" &
+        pids+=($!)
+    fi
+done
+wait "$pids[@]"
+
+command-server-terminate "$REG_SOCKET"

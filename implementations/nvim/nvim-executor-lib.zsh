@@ -40,7 +40,7 @@ function .populate-links() {
 }
 
 function .nvim-comm() {
-    zsocket "$NVIM_REG_SOCKET"
+    zsocket "$NVIM_IPC_SOCKET"
     local conn_fd="$REPLY"
 
     {

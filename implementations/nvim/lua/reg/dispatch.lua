@@ -20,7 +20,7 @@ function M.get(regname)
 
     local lines = vim.fn.getreg(regname, 1, 1)
     if #lines > 0 then
-        return table.concat(lines, "\n")
+        return vim.fn.getreg(regname)
     end
 
     return 1
@@ -58,7 +58,8 @@ function M.set(request_body)
         return 2
     end
 
-    vim.fn.setreg(regname, string.sub(request_body, newline_ind + 1))
+    local value = string.sub(request_body, newline_ind + 1)
+    vim.fn.setreg(regname, value)
     return 0
 end
 
@@ -68,6 +69,7 @@ function M.delete(regname)
         return 2
     end
 
+    -- TODO: deleting the register shared with unnamed implicitly deletes unnamed
     vim.fn.setreg(regname, {})
     return 0
 end

@@ -45,16 +45,16 @@ function M.start_server(socket_path, processor)
                 data = data .. chunk
                 if string.sub(data, -1) == "\0" then
                     data = string.sub(data, 1, -2)
+                    client_stream:read_stop()
                     vim.schedule(function()
                         process_request(data, client_stream)
                     end)
-                    client_stream:read_stop()
                 end
             else
+                client_stream:read_stop()
                 vim.schedule(function()
                     process_request(data, client_stream)
                 end)
-                client_stream:read_stop()
             end
         end)
     end)

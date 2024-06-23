@@ -16,25 +16,61 @@ local function dispatch_request(request)
     return dispatch[verb](string.sub(request, newline_ind + 1))
 end
 
-function M.setup()
-    local dir = vim.fn.stdpath("run") .. "/nvim/reg/" .. vim.fn.getpid()
+local function prep_files()
+    local pid = vim.fn.getpid()
+    M.rundir = vim.fn.stdpath("run") .. "/nvim/reg/"
+    M.logdir = vim.fn.stdpath("log") .. "/reg/"
+
     -- TODO use uv
-    os.execute("mkdir -p '" .. dir .. "'")
-    vim.uv.fs_mkdir(dir, tonumber("0700", 8))
+    os.execute("mkdir -p '" .. M.rundir .. "'")
+    os.execute("mkdir -p '" .. M.logdir .. "'")
 
-    local close_func =
-        require("reg.ipc").start_server("/Users/alexandereager/socket", dispatch_request)
+    M.reg_socket = M.rundir .. "/" .. pid .. ".reg.sock"
+    M.ipc_socket = M.rundir .. "/" .. pid .. ".ipc.sock"
+    M.coproc_log = M.logdir .. "/" .. pid .. ".server.log"
+end
 
-    if close_func then
-        vim.api.nvim_create_autocmd("VimLeave", {
-            group = vim.api.nvim_create_augroup("RegApi", {}),
-            callback = function()
-                close_func()
-                -- TODO use uv
-                os.execute("rmdir '" .. state_dir .. "'")
-            end,
-        })
+function M.setup()
+    prep_files()
+
+    local ipc_close = require("reg.ipc").start_server(M.ipc_socket, dispatch_request)
+    if not ipc_close then
+        return
     end
+
+    local coproc_close =
+        require("reg.coproc").start_coproc(M.reg_socket, M.ipc_socket, M.coproc_log)
+    if not coproc_close then
+        ipc_close()
+        return
+    end
+
+    local augroup = vim.api.nvim_create_augroup("RegApi", {})
+
+    vim.api.nvim_create_autocmd("VimLeave", {
+        group = augroup,
+        callback = function()
+            coproc_close()
+            ipc_close()
+        end,
+    })
+
+    vim.api.nvim_create_autocmd("TextYankPost", {
+        group = augroup,
+        callback = function()
+            local regname = string.lower(vim.v.event.regname)
+            if regname == "" then
+                regname = "unnamed"
+            elseif regname:match("%W") then
+                -- not alphanumeric, so it's a special register that we don't sync
+                return
+            end
+
+            vim.uv.spawn("reg", {
+                args = { "publish", string.lower(vim.v.event.regname) },
+            })
+        end,
+    })
 end
 
 return M
