@@ -9,7 +9,7 @@ function reg() {
     local -a arg_background
     zparseopts -D \
         {I,-instance}:=arg_instance \
-        {b,-background}=arg_background
+        {b,-background}+=arg_background
 
     local socket
     if [[ -n $arg_instance ]]; then
@@ -21,10 +21,12 @@ function reg() {
         return 1
     fi
 
-    if [[ -n $arg_background ]]; then
+    if [[ -z $arg_background ]]; then
+        command-server-call "$socket" "$@"
+    elif [[ $#arg_background -eq 1 ]]; then
         command-server-call-and-forget "$socket" "$@"
     else
-        command-server-call "$socket" "$@"
+        command-server-call-and-forget "$socket" "$@" < /dev/null &> /dev/null
     fi
 }
 
