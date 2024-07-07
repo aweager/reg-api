@@ -109,11 +109,13 @@ function reg-list() {
 function reg-link() {
     .populate-links
     RegLinks[$1]=1
+    .sanitize-links
     .set-link-list
 }
 
 function reg-list-links() {
     .populate-links
+    .sanitize-links
     if [[ -n $RegLinks ]]; then
         printf '%s\n' "${(@k)RegLinks}"
     fi
@@ -122,6 +124,7 @@ function reg-list-links() {
 function reg-unlink() {
     .populate-links
     unset "RegLinks[$1]"
+    .sanitize-links
     .set-link-list
 }
 
@@ -174,6 +177,7 @@ function .publish-except() {
     local exclude_link="$1"
     local specific_reg="$2"
     .populate-links
+    .sanitize-links
 
     local link
     local -a pids
@@ -185,4 +189,13 @@ function .publish-except() {
     done
 
     wait "$pids[@]"
+}
+
+function .sanitize-links() {
+    local link
+    for link in "${(@k)RegLinks}"; do
+        if [[ ! -S "$link" ]]; then
+            unset "RegLinks[$link]"
+        fi
+    done
 }
