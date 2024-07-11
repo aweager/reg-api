@@ -183,12 +183,9 @@ function .publish-except() {
     local -a pids
     for link in "${(@k)RegLinks}"; do
         if [[ "$link" != "$exclude_link" ]]; then
-            reg -I "$link" sync "$REG_SOCKET" "$specific_reg" &
-            pids+=($!)
+            reg -bb -I "$link" sync "$REG_SOCKET" "$specific_reg"
         fi
     done
-
-    wait "$pids[@]"
 }
 
 function .sanitize-links() {
