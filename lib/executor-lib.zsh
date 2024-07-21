@@ -51,7 +51,7 @@ function reg-impl() {
             reg-publish "$@"
             ;;
         *)
-            printf 'Unknown reg command %s\n' "$cmd"
+            printf 'Unknown reg command %s\n' "$cmd" >&2
             reg-print-usage
             ;;
     esac <&0 >&1 2>&2 &
@@ -145,25 +145,18 @@ function reg-sync() {
         local -a theirs=("${(f)THEIRS}")
         local -a mine=("${(f)MINE}")
 
-        local -a pids
-
         local reg
         for reg in "$theirs[@]"; do
             if [[ -n "$reg" ]]; then
-                reg -I "$from_socket" get "$reg" | .set-no-sync "$reg" &
-                pids+=($!)
+                reg -I "$from_socket" get "$reg" | .set-no-sync "$reg"
             fi
         done
 
-        local -T THEIRS theirs "\n"
         for reg in "$mine[@]"; do
             if [[ -n "$reg" && $theirs[(Ie)$reg] -eq 0 ]]; then
-                .delete-no-sync "$reg" &
-                pids+=($!)
+                .delete-no-sync "$reg"
             fi
         done
-
-        wait "$pids[@]"
     fi
 
     .publish-except "$from_socket" "$specific_reg"
@@ -180,7 +173,6 @@ function .publish-except() {
     .sanitize-links
 
     local link
-    local -a pids
     for link in "${(@k)RegLinks}"; do
         if [[ "$link" != "$exclude_link" ]]; then
             reg -bb -I "$link" sync "$REG_SOCKET" "$specific_reg"
