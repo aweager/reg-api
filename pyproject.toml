@@ -1,0 +1,32 @@
+[project]
+name = "reg"
+version = "0.0.1"
+authors = [
+  { name="Alex Eager" },
+]
+description = "A unified register sharing API"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "result",
+    #"jrpc @ TODO
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["reg"]
+
+[project.urls]
+Homepage = "https://github.com/aweager/reg-api"
+Issues = "https://github.com/aweager/reg-api/issues"
+
+[tools.mypy]
+mypy_path = "$MYPY_CONFIG_FILE_DIR"
