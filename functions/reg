@@ -57,12 +57,12 @@ function reg() {
 
             local value
             if value="$(
-                jq -nc --arg registry "$registry" --arg regname "$regname" '{
+                (jq -nc --arg registry "$registry" --arg regname "$regname" '{
                     "registry": $registry,
                     "keys": [ $regname ]
                 }' | \
                     "$call_jrpc[@]" reg.get-multiple | \
-                    "$jq_post" -ercj --arg v "$regname" '.values[$v] + "x"'
+                    "$jq_post" -ercj --arg v "$regname" '.values[$v]') && echo x
             )"; then
                 printf '%s' "${value%x}"
             else
