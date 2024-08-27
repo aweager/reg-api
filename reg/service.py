@@ -2,20 +2,9 @@ from abc import ABC, abstractmethod
 
 from result import Result
 
-from reg.api import (
+from .api import (
     AddLinkParams,
     AddLinkResult,
-    ListLinksParams,
-    ListLinksResult,
-    RemoveLinkParams,
-    RemoveLinkResult,
-    SyncAllParams,
-    SyncAllResult,
-    SyncMultipleParams,
-    SyncMultipleResult,
-)
-
-from .api import (
     ClearAndReplaceParams,
     ClearAndReplaceResult,
     GetAllParams,
@@ -24,13 +13,19 @@ from .api import (
     GetMultipleResult,
     RegistryInfoParams,
     RegistryInfoResult,
+    RemoveLinkParams,
+    RemoveLinkResult,
     SetMultipleParams,
     SetMultipleResult,
+    SyncAllParams,
+    SyncAllResult,
+    SyncMultipleParams,
+    SyncMultipleResult,
 )
 from .errors import RegApiError
 
 
-class RegApiImpl(ABC):
+class RegApi(ABC):
     @abstractmethod
     async def get_registry_info(
         self, params: RegistryInfoParams
@@ -57,10 +52,6 @@ class RegApiImpl(ABC):
     async def clear_and_replace(
         self, params: ClearAndReplaceParams
     ) -> Result[ClearAndReplaceResult, RegApiError]:
-        pass
-
-    @abstractmethod
-    async def list_links(self, params: ListLinksParams) -> Result[ListLinksResult, RegApiError]:
         pass
 
     @abstractmethod

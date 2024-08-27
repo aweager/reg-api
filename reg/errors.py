@@ -6,11 +6,15 @@ from typing import Any, Callable, Mapping, TypeVar
 from dataclasses_json import DataClassJsonMixin
 from dataclasses_json.mm import SchemaType
 from jrpc.data import JsonRpcError, ParsedJson
+from jrpc.service import BidirectionalConverter
+from typing_extensions import override
 
 
 class RegErrorCode(Enum):
     REGISTRY_DOES_NOT_EXIST = 11003
     RESPONSE_SCHEMA_MISMATCH = 11004
+    INVALID_REGISTER_NAME = 11005
+    REJECTED_UNLINKED_SYNC = 11006
 
 
 _registry_by_code: dict[int, Callable[[ParsedJson], Any]] = {}
@@ -32,9 +36,7 @@ def _load_if_dict(schema: SchemaType[_T], parsed_json: ParsedJson) -> _T | None:
         return None
 
 
-def register_error_type(
-    code: int, message: str, data_type: type[DataClassJsonMixin]
-) -> None:
+def register_error_type(code: int, message: str, data_type: type[DataClassJsonMixin]) -> None:
     _registry_by_code[code] = partial(_load_if_dict, data_type.schema())
     _registry_by_type[data_type] = (code, message)
 
@@ -66,9 +68,22 @@ class RegApiError:
         return RegApiError(code, message, data.to_dict())
 
 
+class RegApiErrorConverter(BidirectionalConverter[JsonRpcError, RegApiError]):
+    @override
+    def load(self, f: JsonRpcError) -> RegApiError:
+        return RegApiError.from_json_rpc_error(f)
+
+    @override
+    def dump(self, t: RegApiError) -> JsonRpcError:
+        return t.to_json_rpc_error()
+
+
+ERROR_CONVERTER = RegApiErrorConverter()
+
+
 @dataclass
 class RegistryDoesNotExist(DataClassJsonMixin):
-    reference: str
+    registry: str
 
 
 register_error_type(
@@ -88,4 +103,28 @@ register_error_type(
     code=RegErrorCode.RESPONSE_SCHEMA_MISMATCH.value,
     message="Response schema does not match",
     data_type=ResponseSchemaMismatch,
+)
+
+
+@dataclass
+class InvalidRegisterName(DataClassJsonMixin):
+    register: str
+
+
+register_error_type(
+    code=RegErrorCode.INVALID_REGISTER_NAME.value,
+    message="Invalid register name",
+    data_type=InvalidRegisterName,
+)
+
+
+@dataclass
+class RejectedUnlinkedSync(DataClassJsonMixin):
+    pass
+
+
+register_error_type(
+    code=RegErrorCode.REJECTED_UNLINKED_SYNC.value,
+    message="Sync requested for unlinked registry",
+    data_type=RejectedUnlinkedSync,
 )

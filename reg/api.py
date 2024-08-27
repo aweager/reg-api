@@ -1,119 +1,81 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Generic, TypeVar, override
 
-from jrpc import client as jrpc_client
-from jrpc.data import JsonRpcError, JsonTryLoadMixin, ParsedJson
+from dataclasses_json import config
+from jrpc.data import JsonTryLoadMixin
+from jrpc.service import JsonTryConverter, MethodDescriptor
+from marshmallow import fields
 from result import Err, Ok, Result
 
-from .errors import RegApiError, ResponseSchemaMismatch
+from .errors import ERROR_CONVERTER
 
 
-class RegMethodName(StrEnum):
-    REGISTRY_INFO = "reg.registry-info"
-
-    GET_MULTIPLE = "reg.get-multiple"
-    GET_ALL = "reg.get-all"
-
-    SET_MULTIPLE = "reg.set-multiple"
-    CLEAR_AND_REPLACE = "reg.clear-and-replace"
-
-    LIST_LINKS = "reg.list-links"
-    ADD_LINK = "reg.add-link"
-    REMOVE_LINK = "reg.remove-link"
-
-    SYNC_MULTIPLE = "reg.sync-multiple"
-    SYNC_ALL = "reg.sync-all"
+# fmt: off
+class Regname(StrEnum):
+    unnamed = "unnamed"
+    a = "a"; b = "b"; c = "c"; d = "d"; e = "e"; f = "f"
+    g = "g"; h = "h"; i = "i"; j = "j"; k = "k"; l = "l"
+    m = "m"; n = "n"; o = "o"; p = "p"; q = "q"; r = "r"
+    s = "s"; t = "t"; u = "u"; v = "v"; w = "w"; x = "x"
+    y = "y"; z = "z"
+# fmt: on
 
 
-_TParams = TypeVar("_TParams", bound=JsonTryLoadMixin)
-_TResult = TypeVar("_TResult", bound=JsonTryLoadMixin)
+def parse_regname(register: str) -> Result[Regname, str]:
+    if register in Regname.__members__:
+        return Ok(Regname.__members__[register])
+    return Err("Register name must be 'unnamed' or a-z")
 
 
-class _RegRequestDefinition(
-    Generic[_TParams, _TResult], jrpc_client.RequestDefinition[_TResult, RegApiError]
-):
-    _result_type: type[_TResult]
+def keys_field():
+    return field(metadata=config(mm_field=fields.List(fields.Enum(Regname, by_value=True))))
 
-    def __init__(
-        self, method: RegMethodName, params: _TParams, result_type: type[_TResult]
-    ) -> None:
-        super().__init__(method.value, params.to_dict())
-        self._result_type = result_type
 
-    @override
-    def load_result(self, result: ParsedJson) -> Result[_TResult, RegApiError]:
-        match self._result_type.try_load(result):
-            case Ok() as ok:
-                return ok
-            case Err(msg):
-                return Err(
-                    RegApiError.from_data(ResponseSchemaMismatch(self._result_type.__name__, msg))
-                )
-
-    @override
-    def convert_error(self, error: JsonRpcError) -> RegApiError:
-        return RegApiError.from_json_rpc_error(error)
+def values_field(allow_none: bool):
+    return field(
+        metadata=config(
+            mm_field=fields.Mapping(
+                keys=fields.Enum(Regname, by_value=True), values=fields.Str(allow_none=allow_none)
+            )
+        )
+    )
 
 
 @dataclass
 class RegistryInfoParams(JsonTryLoadMixin):
-    ref: str
+    registry: str
 
 
 @dataclass
 class RegistryInfoResult(JsonTryLoadMixin):
     exists: bool
-    id: str | None
-
-
-class RegistryInfo(_RegRequestDefinition[RegistryInfoParams, RegistryInfoResult]):
-    def __init__(self, params: RegistryInfoParams) -> None:
-        super().__init__(RegMethodName.REGISTRY_INFO, params, RegistryInfoResult)
 
 
 @dataclass
 class GetMultipleParams(JsonTryLoadMixin):
-    location: str
-    namespace: str
-    keys: list[str]
+    registry: str
+    keys: list[Regname] = keys_field()
 
 
 @dataclass
 class GetMultipleResult(JsonTryLoadMixin):
-    values: dict[str, str | None]
-
-
-class GetMultiple(_RegRequestDefinition[GetMultipleParams, GetMultipleResult]):
-    def __init__(self, params: GetMultipleParams) -> None:
-        super().__init__(RegMethodName.GET_MULTIPLE, params, GetMultipleResult)
+    values: dict[Regname, str | None] = values_field(allow_none=True)
 
 
 @dataclass
 class GetAllParams(JsonTryLoadMixin):
-    location: str
-    namespace: str
+    registry: str
 
 
 @dataclass
 class GetAllResult(JsonTryLoadMixin):
-    values: dict[str, str]
-
-
-class GetAll(_RegRequestDefinition[GetAllParams, GetAllResult]):
-    def __init__(self, params: GetAllParams) -> None:
-        super().__init__(
-            RegMethodName.GET_ALL,
-            params,
-            GetAllResult,
-        )
+    values: dict[Regname, str] = values_field(allow_none=False)
 
 
 @dataclass
 class SetMultipleParams(JsonTryLoadMixin):
-    location: str
-    namespace: str
-    values: dict[str, str | None]
+    registry: str
+    values: dict[Regname, str | None] = values_field(allow_none=True)
 
 
 @dataclass
@@ -121,16 +83,10 @@ class SetMultipleResult(JsonTryLoadMixin):
     pass
 
 
-class SetMultiple(_RegRequestDefinition[SetMultipleParams, SetMultipleResult]):
-    def __init__(self, params: SetMultipleParams) -> None:
-        super().__init__(RegMethodName.SET_MULTIPLE, params, SetMultipleResult)
-
-
 @dataclass
 class ClearAndReplaceParams(JsonTryLoadMixin):
-    location: str
-    namespace: str
-    values: dict[str, str]
+    registry: str
+    values: dict[Regname, str] = values_field(allow_none=False)
 
 
 @dataclass
@@ -138,29 +94,16 @@ class ClearAndReplaceResult(JsonTryLoadMixin):
     pass
 
 
-class ClearAndReplace(_RegRequestDefinition[ClearAndReplaceParams, ClearAndReplaceResult]):
-    def __init__(self, params: ClearAndReplaceParams) -> None:
-        super().__init__(RegMethodName.CLEAR_AND_REPLACE, params, ClearAndReplaceResult)
-
-
 @dataclass
-class ListLinksParams(JsonTryLoadMixin):
+class RegLink(JsonTryLoadMixin):
+    instance: str
     registry: str
 
 
 @dataclass
-class ListLinksResult(JsonTryLoadMixin):
-    pass
-
-
-class ListLinks(_RegRequestDefinition[ListLinksParams, ListLinksResult]):
-    def __init__(self, params: ListLinksParams) -> None:
-        super().__init__(RegMethodName.LIST_LINKS, params, ListLinksResult)
-
-
-@dataclass
 class AddLinkParams(JsonTryLoadMixin):
-    pass
+    registry: str
+    link: RegLink
 
 
 @dataclass
@@ -168,14 +111,10 @@ class AddLinkResult(JsonTryLoadMixin):
     pass
 
 
-class AddLink(_RegRequestDefinition[AddLinkParams, AddLinkResult]):
-    def __init__(self, params: AddLinkParams) -> None:
-        super().__init__(RegMethodName.ADD_LINK, params, AddLinkResult)
-
-
 @dataclass
 class RemoveLinkParams(JsonTryLoadMixin):
-    pass
+    registry: str
+    link: RegLink
 
 
 @dataclass
@@ -183,36 +122,94 @@ class RemoveLinkResult(JsonTryLoadMixin):
     pass
 
 
-class RemoveLink(_RegRequestDefinition[RemoveLinkParams, RemoveLinkResult]):
-    def __init__(self, params: RemoveLinkParams) -> None:
-        super().__init__(RegMethodName.REMOVE_LINK, params, RemoveLinkResult)
+@dataclass
+class SyncMultipleParams(JsonTryLoadMixin):
+    source_link: RegLink
+    visited_registries: list[RegLink]
+    registry: str
+    values: dict[Regname, str | None] = values_field(allow_none=True)
 
 
 @dataclass
-class SyncMultipleParams(JsonTryLoadMixin):
-    pass
+class SyncAcceptance(JsonTryLoadMixin):
+    link: RegLink
+    accepted: bool
 
 
 @dataclass
 class SyncMultipleResult(JsonTryLoadMixin):
-    pass
-
-
-class SyncMultiple(_RegRequestDefinition[SyncMultipleParams, SyncMultipleResult]):
-    def __init__(self, params: SyncMultipleParams) -> None:
-        super().__init__(RegMethodName.SYNC_MULTIPLE, params, SyncMultipleResult)
+    sync_acceptance: list[SyncAcceptance]
 
 
 @dataclass
 class SyncAllParams(JsonTryLoadMixin):
-    pass
+    source_link: RegLink
+    visited_registries: list[RegLink]
+    registry: str
+    values: dict[Regname, str] = values_field(allow_none=False)
 
 
 @dataclass
 class SyncAllResult(JsonTryLoadMixin):
-    pass
+    sync_acceptance: list[SyncAcceptance]
 
 
-class SyncAll(_RegRequestDefinition[SyncAllParams, SyncAllResult]):
-    def __init__(self, params: SyncAllParams) -> None:
-        super().__init__(RegMethodName.SYNC_ALL, params, SyncAllResult)
+class RegMethod:
+    REGISTRY_INFO = MethodDescriptor(
+        name="reg.registry-info",
+        params_converter=JsonTryConverter(RegistryInfoParams),
+        result_converter=JsonTryConverter(RegistryInfoResult),
+        error_converter=ERROR_CONVERTER,
+    )
+
+    GET_MULTIPLE = MethodDescriptor(
+        name="reg.get-multiple",
+        params_converter=JsonTryConverter(GetMultipleParams),
+        result_converter=JsonTryConverter(GetMultipleResult),
+        error_converter=ERROR_CONVERTER,
+    )
+    GET_ALL = MethodDescriptor(
+        name="reg.get-all",
+        params_converter=JsonTryConverter(GetAllParams),
+        result_converter=JsonTryConverter(GetAllResult),
+        error_converter=ERROR_CONVERTER,
+    )
+
+    SET_MULTIPLE = MethodDescriptor(
+        name="reg.set-multiple",
+        params_converter=JsonTryConverter(SetMultipleParams),
+        result_converter=JsonTryConverter(SetMultipleResult),
+        error_converter=ERROR_CONVERTER,
+    )
+    CLEAR_AND_REPLACE = MethodDescriptor(
+        name="reg.clear-and-replace",
+        params_converter=JsonTryConverter(ClearAndReplaceParams),
+        result_converter=JsonTryConverter(ClearAndReplaceResult),
+        error_converter=ERROR_CONVERTER,
+    )
+
+    ADD_LINK = MethodDescriptor(
+        name="reg.add-link",
+        params_converter=JsonTryConverter(AddLinkParams),
+        result_converter=JsonTryConverter(AddLinkResult),
+        error_converter=ERROR_CONVERTER,
+    )
+    REMOVE_LINK = MethodDescriptor(
+        name="reg.remove-link",
+        params_converter=JsonTryConverter(RemoveLinkParams),
+        result_converter=JsonTryConverter(RemoveLinkResult),
+        error_converter=ERROR_CONVERTER,
+    )
+
+    SYNC_MULTIPLE = MethodDescriptor(
+        name="reg.sync-multiple",
+        params_converter=JsonTryConverter(SyncMultipleParams),
+        result_converter=JsonTryConverter(SyncMultipleResult),
+        error_converter=ERROR_CONVERTER,
+    )
+    SYNC_ALL = MethodDescriptor(
+        name="reg.sync-all",
+        params_converter=JsonTryConverter(SyncAllParams),
+        result_converter=JsonTryConverter(SyncAllResult),
+        error_converter=ERROR_CONVERTER,
+    )

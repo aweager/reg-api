@@ -1,1 +1,122 @@
-../bin/reg
+#!/bin/zsh
+
+zmodload zsh/zutil
+zmodload zsh/net/socket
+
+function reg() {
+    setopt local_options err_return
+
+    local -a arg_instance arg_registry arg_background
+    zparseopts -D -- \
+        {b,-background}+=arg_background \
+        {R,-registry}:=arg_registry \
+        {I,-instance}:=arg_instance ||
+    return
+
+    local instance
+    if [[ -n $arg_instance ]]; then
+        instance="$arg_instance[-1]"
+    elif [[ -n "$REG_SOCKET" ]]; then
+        instance="$REG_SOCKET"
+    else
+        echo '$REG_SOCKET is not set' >&2
+        return 1
+    fi
+
+    local registry
+    if [[ -n $arg_registry ]]; then
+        registry="$arg_registry[-1]"
+    elif [[ -n "$REG_REGISTRY" ]]; then
+        registry="$REG_REGISTRY"
+    else
+        echo '$REG_REGISTRY is not set' >&2
+        return 1
+    fi
+
+    local -a call_jrpc=(jrpc request "$instance")
+    if which jrpc &> /dev/null; then
+        jrpc connect "$instance" "reg@$instance"
+    else
+        call_jrpc[1]=jrpc-oneoff
+    fi
+
+    local jq_post
+    if [[ -n $arg_background ]]; then
+        call_jrpc[2]=notify
+        jq_post=":"
+    else
+        call_jrpc[2]=request
+        jq_post=jq
+    fi
+
+    local cmd="$1"
+    shift
+    case "$cmd" in
+        get)
+            local regname="$1"
+
+            local value
+            if value="$(
+                jq -nc --arg registry "$registry" --arg regname "$regname" '{
+                    "registry": $registry,
+                    "keys": [ $regname ]
+                }' | \
+                    "$call_jrpc[@]" reg.get-multiple | \
+                    "$jq_post" -ercj --arg v "$regname" '.values[$v] + "x"'
+            )"; then
+                printf '%s' "${value%x}"
+            else
+                local return_val="$?"
+                printf 'Register %s is not set\n' "$regname" >&2
+                return $return_val
+            fi
+            ;;
+
+        set)
+            local regname="$1"
+
+            jq -Rsc --arg registry "$registry" --arg regname "$regname" '{
+                "registry": $registry,
+                "values": {
+                    $regname: .
+                }
+            }' | "$call_jrpc[@]" reg.set-multiple > /dev/null
+            ;;
+
+        delete)
+            local regname="$1"
+
+            jq -nc --arg registry "$registry" --arg regname "$regname" '{
+                "registry": $registry,
+                "values": {
+                    $regname: null
+                }
+            }' | "$call_jrpc[@]" reg.set-multiple > /dev/null
+            ;;
+
+        has)
+            local regname="$1"
+
+            jq -nc --arg registry "$registry" --arg regname "$regname" '{
+                "registry": $registry,
+                "namespace": "USER",
+                "keys": [ $regname ]
+            }' | \
+                "$call_jrpc[@]" reg.get-multiple | \
+                "$jq_post" -ercj --arg v "$regname" '.values[$v]' > /dev/null
+            ;;
+
+        list)
+            # TODO need to add to API
+            printf 'list not implemented\n' '' >&2
+            return 1
+            ;;
+
+        *)
+            printf 'Unsupported reg command %s\n' "$cmd" >&2
+            return 1
+            ;;
+    esac
+}
+
+reg "$@"
