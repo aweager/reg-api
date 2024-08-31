@@ -53,7 +53,7 @@ function reg() {
     shift
     case "$cmd" in
         get)
-            local regname="$1"
+            local regname="${1:-unnamed}"
 
             local value
             if value="$(
@@ -73,7 +73,7 @@ function reg() {
             ;;
 
         set)
-            local regname="$1"
+            local regname="${1:-unnamed}"
 
             jq -Rsc --arg registry "$registry" --arg regname "$regname" '{
                 "registry": $registry,
@@ -84,7 +84,7 @@ function reg() {
             ;;
 
         delete)
-            local regname="$1"
+            local regname="${1:-unnamed}"
 
             jq -nc --arg registry "$registry" --arg regname "$regname" '{
                 "registry": $registry,
@@ -95,7 +95,7 @@ function reg() {
             ;;
 
         has)
-            local regname="$1"
+            local regname="${1:-unnamed}"
 
             jq -nc --arg registry "$registry" --arg regname "$regname" '{
                 "registry": $registry,

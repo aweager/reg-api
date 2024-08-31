@@ -4,9 +4,8 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
-from typing import Generic
 
-from jrpc.client import ClientFactory, JsonRpcOneoffClient, TFactoryError
+from jrpc.client import ClientFactory, JsonRpcOneoffClient
 
 from .api import (
     RegLink,
@@ -25,8 +24,8 @@ _LOGGER = logging.getLogger("reg-syncer")
 
 
 @dataclass
-class RegSyncer(Generic[TFactoryError]):
-    client_factory: ClientFactory[TFactoryError]
+class RegSyncer:
+    client_factory: ClientFactory
     this_instance: str
 
     async def forward_sync_multiple(
@@ -75,7 +74,7 @@ class RegSyncer(Generic[TFactoryError]):
         visited_registries.extend(links)
         deduplicated: list[RegLink] = []
         for link in visited_registries:
-            if not link in deduplicated:
+            if link not in deduplicated:
                 deduplicated.append(link)
         visited_registries = deduplicated
 
