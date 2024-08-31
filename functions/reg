@@ -33,21 +33,25 @@ function reg() {
         return 1
     fi
 
-    local -a call_jrpc=(jrpc request "$instance")
+    local jrpc_or_oneoff request_or_notify socket_or_name jq_post
     if which jrpc &> /dev/null; then
         jrpc connect "$instance" "reg@$instance"
+        jrpc_or_oneoff=jrpc
+        socket_or_name="reg@$instance"
     else
-        call_jrpc[1]=jrpc-oneoff
+        jrpc_or_oneoff=jrpc-oneoff
+        socket_or_name="$socket"
     fi
 
-    local jq_post
     if [[ -n $arg_background ]]; then
-        call_jrpc[2]=notify
+        request_or_notify=notify
         jq_post=":"
     else
-        call_jrpc[2]=request
+        request_or_notify=request
         jq_post=jq
     fi
+
+    local -a call_jrpc=("$jrpc_or_oneoff" "$request_or_notify" "$socket_or_name")
 
     local cmd="$1"
     shift
