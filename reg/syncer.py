@@ -71,12 +71,19 @@ class RegSyncer:
         visited_registries.append(this_link)
         unvisited_links = [link for link in links if link not in visited_registries]
 
+        _LOGGER.info(f"Syncing...")
+        _LOGGER.info(f"    links = {links}")
+        _LOGGER.info(f"    visited_registries = {visited_registries}")
+        _LOGGER.info(f"    unvisited_links = {unvisited_links}")
+
         visited_registries.extend(links)
         deduplicated: list[RegLink] = []
         for link in visited_registries:
             if link not in deduplicated:
                 deduplicated.append(link)
         visited_registries = deduplicated
+
+        _LOGGER.info(f"    deduplicated = {visited_registries}")
 
         acceptance_list = [
             a
@@ -99,6 +106,7 @@ class RegSyncer:
                     break
             acceptance_dict[acc_key] = SyncAcceptance(RegLink(acc_key[0], acc_key[1]), is_accepted)
 
+        _LOGGER.info(f"    acceptance: {acceptance_dict}")
         return list(acceptance_dict.values())
 
     async def _call_sync_multiple(
