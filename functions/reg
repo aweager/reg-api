@@ -16,10 +16,10 @@ function reg() {
     local instance
     if [[ -n $arg_instance ]]; then
         instance="$arg_instance[-1]"
-    elif [[ -n "$REG_SOCKET" ]]; then
-        instance="$REG_SOCKET"
+    elif [[ -n "$REG_INSTANCE" ]]; then
+        instance="$REG_INSTANCE"
     else
-        echo '$REG_SOCKET is not set' >&2
+        echo '$REG_INSTANCE is not set' >&2
         return 1
     fi
 
@@ -33,14 +33,12 @@ function reg() {
         return 1
     fi
 
-    local jrpc_or_oneoff request_or_notify socket_or_name jq_post
-    if which jrpc &> /dev/null; then
-        jrpc connect "$instance" "reg@$instance"
+    local jrpc_or_oneoff request_or_notify jq_post
+    if which jrpc-router &> /dev/null; then
+        jrpc-router connect "$instance"
         jrpc_or_oneoff=jrpc
-        socket_or_name="reg@$instance"
     else
-        jrpc_or_oneoff=jrpc-oneoff
-        socket_or_name="$socket"
+        jrpc_or_oneoff=jrpc-router-oneoff
     fi
 
     if [[ -n $arg_background ]]; then
@@ -51,7 +49,7 @@ function reg() {
         jq_post=jq
     fi
 
-    local -a call_jrpc=("$jrpc_or_oneoff" "$request_or_notify" "$socket_or_name")
+    local -a call_jrpc=("$jrpc_or_oneoff" "$request_or_notify" "$instance")
 
     local cmd="$1"
     shift
