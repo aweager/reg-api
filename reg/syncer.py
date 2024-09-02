@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
 
-from jrpc.client import ClientFactory, JsonRpcOneoffClient
+from jrpc.client_cache import ClientManager
 
 from .api import (
     RegLink,
@@ -25,7 +25,7 @@ _LOGGER = logging.getLogger("reg-syncer")
 
 @dataclass
 class RegSyncer:
-    client_factory: ClientFactory
+    clients: ClientManager
     this_instance: str
 
     async def forward_sync_multiple(
@@ -116,21 +116,22 @@ class RegSyncer:
         to_link: RegLink,
         values: dict[Regname, str | None],
     ) -> list[SyncAcceptance]:
-        return (
-            (
-                await JsonRpcOneoffClient(to_link.instance, self.client_factory).request(
-                    descriptor=RegMethod.SYNC_MULTIPLE,
-                    params=SyncMultipleParams(
-                        source_link=this_link,
-                        visited_registries=visited_registries,
-                        registry=to_link.registry,
-                        values=values,
-                    ),
+        async with self.clients.client(to_link.instance) as client:
+            return (
+                (
+                    await client.request(
+                        descriptor=RegMethod.SYNC_MULTIPLE,
+                        params=SyncMultipleParams(
+                            source_link=this_link,
+                            visited_registries=visited_registries,
+                            registry=to_link.registry,
+                            values=values,
+                        ),
+                    )
                 )
+                .map(lambda r: r.sync_acceptance)
+                .unwrap_or_else(lambda _: [SyncAcceptance(to_link, False)])
             )
-            .map(lambda r: r.sync_acceptance)
-            .unwrap_or_else(lambda _: [SyncAcceptance(to_link, False)])
-        )
 
     async def _call_sync_all(
         self,
@@ -139,18 +140,19 @@ class RegSyncer:
         to_link: RegLink,
         values: dict[Regname, str],
     ) -> list[SyncAcceptance]:
-        return (
-            (
-                await JsonRpcOneoffClient(to_link.instance, self.client_factory).request(
-                    descriptor=RegMethod.SYNC_ALL,
-                    params=SyncAllParams(
-                        source_link=this_link,
-                        visited_registries=visited_registries,
-                        registry=to_link.registry,
-                        values=values,
-                    ),
+        async with self.clients.client(to_link.instance) as client:
+            return (
+                (
+                    await client.request(
+                        descriptor=RegMethod.SYNC_ALL,
+                        params=SyncAllParams(
+                            source_link=this_link,
+                            visited_registries=visited_registries,
+                            registry=to_link.registry,
+                            values=values,
+                        ),
+                    )
                 )
+                .map(lambda r: r.sync_acceptance)
+                .unwrap_or_else(lambda _: [SyncAcceptance(to_link, False)])
             )
-            .map(lambda r: r.sync_acceptance)
-            .unwrap_or_else(lambda _: [SyncAcceptance(to_link, False)])
-        )
