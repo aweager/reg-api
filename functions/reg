@@ -33,14 +33,7 @@ function reg() {
         return 1
     fi
 
-    local jrpc_or_oneoff request_or_notify jq_post
-    if which jrpc-router &> /dev/null; then
-        jrpc-router connect "$instance"
-        jrpc_or_oneoff=jrpc
-    else
-        jrpc_or_oneoff=jrpc-router-oneoff
-    fi
-
+    local request_or_notify jq_post
     if [[ -n $arg_background ]]; then
         request_or_notify=notify
         jq_post=":"
@@ -49,7 +42,7 @@ function reg() {
         jq_post=jq
     fi
 
-    local -a call_jrpc=("$jrpc_or_oneoff" "$request_or_notify" "$instance")
+    local -a call_jrpc=("jrpc-router-autocache" "$request_or_notify" "$instance")
 
     local cmd="$1"
     shift
