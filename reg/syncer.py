@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import partial
 
-from jrpc.client_cache import ClientManager
+from jrpc.client import ClientManager
 
 from .api import (
     RegLink,
