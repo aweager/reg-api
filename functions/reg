@@ -3,6 +3,8 @@
 zmodload zsh/zutil
 zmodload zsh/net/socket
 
+typeset -gAH RegExists
+
 function reg() {
     setopt local_options err_return
 
@@ -42,7 +44,15 @@ function reg() {
         jq_post=jq
     fi
 
-    local -a call_jrpc=("jrpc-router-autocache" "$request_or_notify" "$instance")
+    local -a call_jrpc=("jrpc-autocache" "$request_or_notify" "$JRPC_MESH_SOCKET" mesh)
+
+    if [[ -z "$RegExists[$instance]" ]]; then
+        jq -nc --arg instance "$instance" '{
+            "method": $instance + "/RegAPI"
+        }' | \
+            jrpc-autocache request "$JRPC_MESH_SOCKET" "mesh" awe.proxy/WaitUntilRoutable > /dev/null
+        RegExists[$instance]=1
+    fi
 
     local cmd="$1"
     shift
@@ -56,7 +66,7 @@ function reg() {
                     "registry": $registry,
                     "keys": [ $regname ]
                 }' | \
-                    "$call_jrpc[@]" reg.get-multiple | \
+                    "$call_jrpc[@]" "$instance/RegAPI.GetMultipleRegs" | \
                     "$jq_post" -ercj --arg v "$regname" '.values[$v]') && echo x
             )"; then
                 printf '%s' "${value%x}"
@@ -75,7 +85,7 @@ function reg() {
                 "values": {
                     $regname: .
                 }
-            }' | "$call_jrpc[@]" reg.set-multiple > /dev/null
+            }' | "$call_jrpc[@]" "$instance/RegAPI.SetMultipleRegs" > /dev/null
             ;;
 
         delete)
@@ -86,7 +96,7 @@ function reg() {
                 "values": {
                     $regname: null
                 }
-            }' | "$call_jrpc[@]" reg.set-multiple > /dev/null
+            }' | "$call_jrpc[@]" "$instance/RegAPI.SetMultipleRegs" > /dev/null
             ;;
 
         has)
@@ -97,7 +107,7 @@ function reg() {
                 "namespace": "USER",
                 "keys": [ $regname ]
             }' | \
-                "$call_jrpc[@]" reg.get-multiple | \
+                "$call_jrpc[@]" "$instance/RegAPI.GetMultipleRegs" | \
                 "$jq_post" -ercj --arg v "$regname" '.values[$v]' > /dev/null
             ;;
 
